@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A classroom detective game: investigate eight factory crime scenes, name each Lean waste, and win back lost productivity.">
+<title>CSI: The Waste Factory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@700;800&family=Archivo:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+html,body{margin:0}[hidden]{display:none!important}img{max-width:100%}
+/* Layout: caution-tape header over an evidence board of 8 case folders; opening a folder splits into scene (left) and case file (right). */
+:root{
+  --paper:#E3E5E0; --surface:#F5F5F1; --ink:#1A2028; --muted:#59626E; --line:#C5C9C2;
+  --red:#B5312A; --tape:#F0BE2C; --tape-ink:#1A1A12; --folder:#D9BF88; --folder-edge:#BFA36A; --folder-ink:#3A2D12;
+  --ok:#2C7A4D; --ok-bg:#DDEEE3; --bad-bg:#F6DEDA;
+  --f-display:"Big Shoulders Stencil Display","Impact","Arial Narrow",sans-serif;
+  --f-body:"Archivo","Segoe UI",system-ui,sans-serif;
+  --f-type:"Courier Prime","Courier New",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#13171C; --surface:#1C2229; --ink:#E8E6DF; --muted:#9CA5AF; --line:#313942;
+  --red:#E85A4D; --tape:#EDBB2B; --tape-ink:#16160F; --folder:#4E4127; --folder-edge:#6B5933; --folder-ink:#F2E0B4;
+  --ok:#62C08B; --ok-bg:#1B3326; --bad-bg:#3A1F1C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#13171C; --surface:#1C2229; --ink:#E8E6DF; --muted:#9CA5AF; --line:#313942;
+  --red:#E85A4D; --tape:#EDBB2B; --tape-ink:#16160F; --folder:#4E4127; --folder-edge:#6B5933; --folder-ink:#F2E0B4;
+  --ok:#62C08B; --ok-bg:#1B3326; --bad-bg:#3A1F1C; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--tape);outline-offset:2px}
+
+.tape{height:22px;background:repeating-linear-gradient(-45deg,var(--tape) 0 22px,var(--tape-ink) 22px 44px)}
+header{padding-block:18px 20px;padding-inline:16px;border-bottom:1px solid var(--line)}
+.hwrap,.wrap{max-width:1180px;margin:0 auto}
+.wrap{padding-inline:16px;padding-block:24px 56px}
+.hwrap{display:flex;flex-wrap:wrap;gap:18px 32px;align-items:flex-end;justify-content:space-between}
+.eyebrow{font-family:var(--f-type);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--red);font-weight:700}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(40px,6vw,72px);line-height:.9;margin:4px 0 0;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+h1 span{color:var(--red)}
+.stats{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
+.stat b{display:block;font-family:var(--f-display);font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-family:var(--f-type);font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.meter{min-width:240px;flex:1}
+.meter .track{height:16px;background:var(--surface);border:1px solid var(--line);position:relative;overflow:hidden;margin-top:6px}
+.meter .fill{position:absolute;inset:0 auto 0 0;background:var(--red);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.meter .fill.full{background:var(--ok)}
+.meter .row{display:flex;justify-content:space-between;align-items:baseline}
+.meter .row b{font-family:var(--f-display);font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+
+.brief{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start;margin-bottom:28px}
+.memo{background:var(--surface);border:1px solid var(--line);padding:20px 22px;font-family:var(--f-type);font-size:17px;line-height:1.55}
+.memo p{margin:0 0 10px}.memo p:last-child{margin:0}
+.memo .stamp{display:inline-block;border:2px solid var(--red);color:var(--red);padding:2px 8px;font-weight:700;letter-spacing:.1em;transform:rotate(-3deg);margin-bottom:10px}
+.how{margin:0;padding-left:20px;color:var(--muted)}
+.how li{margin-bottom:6px}.how b{color:var(--ink)}
+
+.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px 18px}
+.folder{position:relative;text-align:left;background:var(--folder);color:var(--folder-ink);border:1px solid var(--folder-edge);padding:26px 16px 16px;cursor:pointer;min-height:168px;display:flex;flex-direction:column;gap:6px;transition:transform .15s ease,box-shadow .15s ease}
+.folder::before{content:"";position:absolute;top:-12px;left:-1px;width:42%;height:13px;background:var(--folder);border:1px solid var(--folder-edge);border-bottom:none}
+.folder:hover{transform:translateY(-3px) rotate(-.4deg);box-shadow:0 8px 18px rgba(0,0,0,.18)}
+.folder .no{font-family:var(--f-type);font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.folder .t{font-family:var(--f-display);font-size:28px;line-height:1;text-transform:uppercase;text-wrap:balance}
+.folder .s{margin-top:auto;font-family:var(--f-type);font-size:13px}
+.folder .solvedstamp{position:absolute;right:10px;bottom:12px;border:3px solid var(--red);color:var(--red);font-family:var(--f-display);font-size:20px;padding:0 8px;transform:rotate(-8deg);letter-spacing:.06em;background:color-mix(in srgb,var(--folder) 70%,transparent)}
+
+.verdict{background:var(--ok-bg);border:2px solid var(--ok);padding:22px;margin-bottom:28px}
+.verdict h2{font-family:var(--f-display);font-size:44px;line-height:1;margin:0 0 8px;text-transform:uppercase;color:var(--ok)}
+.convicts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+.convicts div{background:var(--surface);border:1px solid var(--line);padding:10px 12px;font-size:14px}
+.convicts b{display:block;font-family:var(--f-display);font-size:22px;text-transform:uppercase}
+
+/* case view */
+.back{background:none;border:none;cursor:pointer;font-family:var(--f-type);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:14px;padding:6px 0;margin-bottom:12px;color:var(--muted)}
+.back:hover{color:var(--ink)}
+.case{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:22px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);padding:22px}
+.scene h2{font-family:var(--f-display);font-size:clamp(34px,4vw,48px);line-height:.95;margin:4px 0 8px;text-transform:uppercase;text-wrap:balance}
+.scene .lead{font-family:var(--f-type);font-size:16px;margin:0 0 18px;color:var(--muted)}
+.file{background:var(--folder);color:var(--folder-ink);border:1px solid var(--folder-edge);padding:22px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+.file h3{font-family:var(--f-display);font-size:28px;margin:0 0 10px;text-transform:uppercase;line-height:1}
+.steps{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.steps span{font-family:var(--f-type);font-size:12px;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border:1px solid var(--folder-ink);opacity:.45}
+.steps span.on{opacity:1;background:var(--folder-ink);color:var(--folder)}
+.steps span.done{opacity:.8;text-decoration:line-through}
+.file p{margin:0 0 12px}
+.evid{font-family:var(--f-type);font-size:15px;padding:10px 12px;border:1px dashed var(--folder-ink);margin-bottom:14px}
+details.live{margin-top:14px;font-size:15px}
+details.live summary{cursor:pointer;font-weight:700;font-family:var(--f-type);text-transform:uppercase;letter-spacing:.06em;font-size:13px}
+details.live p{margin:8px 0 0}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:var(--paper);border:none;padding:12px 20px;font-weight:700;font-size:16px;cursor:pointer;letter-spacing:.02em;transition:transform .1s ease,opacity .2s}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.red{background:var(--red);color:#fff}
+.btn.ghost{background:transparent;color:inherit;border:2px solid currentColor}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+.lineup{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px}
+.suspect{text-align:left;cursor:pointer;background:var(--surface);color:var(--ink);border:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:2px;transition:transform .12s}
+.suspect:hover{transform:translateY(-2px)}
+.suspect b{font-family:var(--f-display);font-size:22px;line-height:1;text-transform:uppercase}
+.suspect i{font-style:normal;font-family:var(--f-type);font-size:12px;color:var(--muted)}
+.suspect.cleared{opacity:.35;pointer-events:none;text-decoration:line-through}
+.suspect.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
+.alibi{background:var(--bad-bg);color:var(--ink);border-left:4px solid var(--red);padding:10px 12px;margin-top:12px;font-size:15px}
+.caught{background:var(--surface);color:var(--ink);border:3px solid var(--red);padding:14px;margin-bottom:14px}
+.caught .lbl{font-family:var(--f-type);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--red);font-weight:700}
+.caught b{display:block;font-family:var(--f-display);font-size:38px;line-height:1;text-transform:uppercase}
+.qa{border-top:1px solid var(--folder-ink);padding:10px 0}
+.qa .q{font-weight:700}
+.qa .a{margin-top:6px;font-family:var(--f-type);font-size:15px}
+.reveal{background:none;border:1px solid currentColor;padding:3px 10px;font-size:13px;cursor:pointer;margin-top:6px;font-family:var(--f-type)}
+
+/* sims */
+.readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:18px}
+.readouts div{border:1px solid var(--line);padding:10px 12px;background:var(--paper)}
+.readouts b{display:block;font-family:var(--f-display);font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+.readouts b.warn{color:var(--red)}
+.readouts span{font-size:13px;color:var(--muted)}
+.note{font-family:var(--f-type);font-size:15px;margin-top:14px;min-height:1.5em}
+.note.hot{color:var(--red);font-weight:700}
+.actors{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.actor{border:1px solid var(--line);padding:14px;background:var(--paper)}
+.tag{font-family:var(--f-type);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.ticket{font-family:var(--f-type);font-size:16px;background:var(--surface);border:1px dashed var(--muted);padding:10px}
+.status{font-family:var(--f-display);font-size:34px;line-height:1}
+.status.busy{color:var(--red)} .status.free{color:var(--ok)}
+.bar{height:10px;background:var(--surface);border:1px solid var(--line);margin-top:10px;position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--red);width:0}
+.bar.ok i{background:var(--ok)}
+
+.room{position:relative;height:150px;border:1px solid var(--line);background:
+  repeating-linear-gradient(90deg,transparent 0 59px,var(--line) 59px 60px),var(--paper)}
+.room .lbl{position:absolute;bottom:6px;font-family:var(--f-type);font-size:12px;color:var(--muted)}
+.bench{position:absolute;left:10px;top:50px;width:70px;height:50px;background:var(--folder);border:1px solid var(--folder-edge)}
+.penspot{position:absolute;right:16px;top:64px;width:46px;height:8px;background:var(--red);border-radius:4px;transition:opacity .2s}
+.walker{position:absolute;left:28px;top:40px;width:34px;height:34px;border-radius:50%;background:var(--ink);transition:left .9s cubic-bezier(.45,0,.55,1)}
+.walker::after{content:"";position:absolute;left:5px;top:36px;width:24px;height:30px;background:var(--ink);border-radius:8px 8px 2px 2px}
+.walker.carry::before{content:"";position:absolute;left:24px;top:40px;width:30px;height:6px;background:var(--red);border-radius:3px}
+
+.lane{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;align-items:end}
+.node{border:1px solid var(--line);background:var(--paper);min-height:110px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;font-family:var(--f-type);font-size:12px}
+.node.end{background:var(--ok-bg)}
+.pkg{width:30px;height:26px;background:var(--folder);border:2px solid var(--folder-ink);position:relative}
+.pkg::after{content:"";position:absolute;left:12px;top:0;bottom:0;width:2px;background:var(--folder-ink)}
+.node .slot{height:30px;display:flex;align-items:center}
+
+.foldstage{display:flex;align-items:center;justify-content:center;height:220px;border:1px solid var(--line);background:var(--paper);position:relative}
+.sheet{background:var(--surface);border:1px solid var(--muted);box-shadow:3px 3px 0 var(--line);transition:width .25s ease,height .25s ease}
+.foldstage .count{position:absolute;top:8px;right:12px;font-family:var(--f-display);font-size:40px;font-variant-numeric:tabular-nums}
+.spec{font-family:var(--f-type);font-size:15px;padding:8px 12px;border-left:4px solid var(--ok);background:var(--ok-bg);margin-bottom:12px}
+.mbars{display:grid;gap:10px;margin-top:14px}
+.mbars label{font-size:14px;display:flex;justify-content:space-between;color:var(--muted)}
+
+.tablewrap{overflow-x:auto}
+table.orders{width:100%;border-collapse:collapse;font-family:var(--f-type);font-size:15px}
+.orders th,.orders td{border:1px solid var(--line);padding:9px 10px;text-align:left}
+.orders th{background:var(--paper);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.orders td.cell{cursor:pointer;background:var(--surface)}
+.orders td.cell:hover{background:var(--paper)}
+.orders td.flag{background:var(--bad-bg);color:var(--red);font-weight:700;text-decoration:line-through wavy}
+.orders td.okc{background:var(--ok-bg)}
+
+.stock{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;padding:12px;border:1px solid var(--line);background:var(--paper)}
+.stock i{aspect-ratio:1;background:var(--folder);border:1px solid var(--folder-edge);display:block;transition:background .3s,opacity .3s}
+.stock i.used{opacity:.12}
+.stock i.dmg{background:var(--red);border-color:var(--red)}
+.stock i.obs{background:var(--muted);border-color:var(--muted)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px}
+.legend span::before{content:"";display:inline-block;width:11px;height:11px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+
+.customers{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.cust{border:1px solid var(--line);background:var(--paper);padding:10px 4px;text-align:center;font-family:var(--f-type);font-size:12px;min-height:96px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.cust .head{width:22px;height:22px;border-radius:50%;background:var(--muted)}
+.cust.served{background:var(--ok-bg)}
+.boat{width:26px;height:14px;background:var(--surface);border:2px solid var(--ink);border-top:none;border-radius:0 0 12px 12px;position:relative;display:inline-block}
+.boat::before{content:"";position:absolute;left:9px;bottom:12px;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid var(--ink)}
+.pile{border:2px dashed var(--red);margin-top:12px;padding:12px;min-height:76px;display:flex;flex-wrap:wrap;gap:12px 10px;align-content:flex-start;padding-top:28px;position:relative}
+.pile::before{content:"UNSOLD — NO CUSTOMER";position:absolute;top:6px;left:10px;font-family:var(--f-type);font-size:12px;color:var(--red);font-weight:700;letter-spacing:.08em}
+.pop{animation:pop .3s ease}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+
+.instr{font-family:var(--f-type);font-size:18px;background:var(--paper);border:1px solid var(--line);padding:14px 16px;margin-bottom:14px}
+.choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.choice{cursor:pointer;background:var(--paper);border:1px solid var(--line);padding:14px 10px;text-align:center;font-weight:600}
+.choice:hover:not(:disabled){border-color:var(--ink)}
+.choice:disabled{cursor:default;opacity:.5}
+.choice svg{display:block;margin:0 auto 8px;width:56px;height:48px}
+.say{border-left:4px solid var(--red);background:var(--bad-bg);padding:10px 14px;margin-top:14px;font-family:var(--f-type)}
+.say.good{border-color:var(--ok);background:var(--ok-bg)}
+.timeline{display:flex;height:28px;margin-top:14px;border:1px solid var(--line)}
+.timeline div{display:flex;align-items:center;justify-content:center;font-size:12px;font-family:var(--f-type);color:#fff;transition:flex .4s}
+
+.hidden{display:none!important}
+
+@media (max-width:900px){
+  .board,.convicts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .case,.brief{grid-template-columns:minmax(0,1fr)}
+  .file{position:static}
+}
+@media (max-width:520px){
+  .lane{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .customers{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .choices,.actors{grid-template-columns:minmax(0,1fr)}
+  .stock{grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}
+  .board,.convicts,.lineup{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="tape" aria-hidden="true"></div>
+<header>
+  <div class="hwrap">
+    <div>
+      <div class="eyebrow">Lean Crime Lab · Case file 0730</div>
+      <h1>CSI: The <span>Waste</span> Factory</h1>
+    </div>
+    <div class="stats">
+      <div class="meter">
+        <div class="row"><span class="eyebrow" style="color:var(--muted)">Factory productivity</span><b id="prod">70%</b></div>
+        <div class="track"><div class="fill" id="prodfill" style="width:70%"></div></div>
+      </div>
+      <div class="stat"><b id="solvedN">0/8</b><span>Cases closed</span></div>
+      <div class="stat"><b id="scoreN">0</b><span>Detective score</span></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="app"></main>
+
+<script>
+const WASTES = [
+  {key:"waiting", name:"Waiting", alias:"The Idle Clock", def:"Idle time when people, material or information sit still, waiting for the next step."},
+  {key:"motion", name:"Motion", alias:"The Wanderer", def:"Unnecessary movement of people: walking, reaching, searching."},
+  {key:"transport", name:"Transportation", alias:"The Courier", def:"Unnecessary moving of materials or products from place to place or hand to hand."},
+  {key:"overproc", name:"Over-processing", alias:"The Perfectionist", def:"Doing more work, or a higher spec, than the customer asked for."},
+  {key:"defect", name:"Defect", alias:"The Botcher", def:"Output that is wrong and has to be found, scrapped or fixed."},
+  {key:"inventory", name:"Inventory", alias:"The Hoarder", def:"More raw material, work-in-progress or finished goods than the next step needs right now."},
+  {key:"overprod", name:"Overproduction", alias:"The Overachiever", def:"Making more, or sooner, than the customer has asked for."},
+  {key:"correction", name:"Correction", alias:"The Redo", def:"Doing work a second time because it wasn't right the first time, often because instructions were unclear."}
+];
+const W = Object.fromEntries(WASTES.map(w=>[w.key,w]));
+
+let timers = [];
+const every = (fn,ms)=>{const id=setInterval(fn,ms);timers.push(id);return id};
+const later = (fn,ms)=>{const id=setTimeout(fn,ms);timers.push(id);return id};
+const clearTimers = ()=>{timers.forEach(id=>{clearInterval(id);clearTimeout(id)});timers=[]};
+const $ = (s,r=document)=>r.querySelector(s);
+
+/* ---------- STATIONS ---------- */
+const STATIONS = [
+{
+  culprit:"waiting", title:"The Stalled Order",
+  lead:"Order #4471 has arrived at your desk. The next step is the press operator, but the operator is busy with someone else's job.",
+  evidence:"Hold the order until the operator is free, then hand it over.",
+  live:"Give one student an imaginary order. They must wait because another student is \"busy\" (counting to 30, sorting cards). Time how long the order sits still.",
+  questions:[
+    ["What is happening?","The order is sitting still. Nothing is being done to it while the operator finishes another job."],
+    ["What resource is waiting?","The order (material and information) and you, the person holding it. Your paid time produces nothing."],
+    ["Why?","The workload isn't balanced. The operator is a bottleneck and there's no schedule telling work when to arrive."],
+    ["What is the cost?","Longer lead time for the customer, wages paid for idle time, and work piling up in front of the bottleneck."]
+  ],
+  build(el,unlock){
+    el.innerHTML=`
+      <div class="actors">
+        <div class="actor"><div class="tag">You · holding</div><div class="ticket">ORDER #4471<br>12 × steel brackets<br>Due: today</div></div>
+        <div class="actor"><div class="tag">Press operator</div><div class="status busy" id="st">BUSY</div><div class="bar"><i id="ob"></i></div><div class="tag" style="margin-top:8px" id="stx">Finishing order #4468…</div></div>
+      </div>
+      <div class="readouts">
+        <div><b id="idle" class="warn">0.0 s</b><span>Your order sitting still</span></div>
+        <div><b id="val">0%</b><span>Value added to the order</span></div>
+        <div><b id="cost">$0.00</b><span>Wages paid for waiting ($36/h)</span></div>
+      </div>
+      <div class="btnrow"><button class="btn" id="go" disabled>Operator busy…</button></div>
+      <p class="note" id="nt">The clock is running. Watch what happens to your order.</p>`;
+    let idle=0, busy=0, free=false;
+    const BUSY=9;
+    every(()=>{
+      idle+=.1;
+      $("#idle",el).textContent=idle.toFixed(1)+" s";
+      $("#cost",el).textContent="$"+(idle*0.01).toFixed(2);
+      if(!free){busy+=.1;$("#ob",el).style.width=Math.min(100,busy/BUSY*100)+"%";
+        if(busy>=BUSY){free=true;const s=$("#st",el);s.textContent="FREE";s.className="status free";$("#stx",el).textContent="Ready for your order";
+          const g=$("#go",el);g.disabled=false;g.textContent="Hand over the order";g.classList.add("red");
+          $("#nt",el).textContent="The operator is finally free. Your order waited the whole time.";}}
+    },100);
+    $("#go",el).onclick=()=>{clearTimers();$("#go",el).disabled=true;$("#go",el).textContent="Order handed over";
+      $("#val",el).textContent="0%";
+      const n=$("#nt",el);n.classList.add("hot");n.textContent=`Evidence logged: the order sat for ${idle.toFixed(1)} s and gained nothing.`;unlock();};
+  }
+},
+{
+  culprit:"motion", title:"The Pen Across the Room",
+  lead:"You work at the bench on the left. The only pen you need lives on a shelf on the far side of the room. You need it four times today.",
+  evidence:"Fetch the pen four times.",
+  live:"Put a pen or tool on the far side of the room. Ask one student to fetch it, return it and fetch it again, several times. Count the steps.",
+  questions:[
+    ["Did the customer's product improve while you were walking?","No. The product was exactly the same after every trip."],
+    ["So what kind of waste is this?","Motion: people moving when the movement adds no value. Here the person moved, not the product."],
+    ["How would you fix it?","Store the tool where it is used (point-of-use storage, 5S). Each trip disappears."]
+  ],
+  build(el,unlock){
+    el.innerHTML=`
+      <div class="room"><div class="bench"></div><span class="lbl" style="left:10px">Your bench</span>
+        <div class="penspot" id="pen"></div><span class="lbl" style="right:12px">Pen shelf · 14 m away</span>
+        <div class="walker" id="wk"></div></div>
+      <div class="readouts">
+        <div><b id="tr">0/4</b><span>Trips made</span></div>
+        <div><b id="m" class="warn">0 m</b><span>Walked</span></div>
+        <div><b id="sec" class="warn">0 s</b><span>Working time spent walking</span></div>
+        <div><b>0%</b><span>Improvement to the product</span></div>
+      </div>
+      <div class="btnrow"><button class="btn" id="go">Walk to fetch the pen</button></div>
+      <p class="note" id="nt"></p>`;
+    let trips=0;
+    const wk=$("#wk",el), pen=$("#pen",el), go=$("#go",el);
+    go.onclick=()=>{
+      go.disabled=true;
+      wk.style.left="calc(100% - 64px)";
+      later(()=>{pen.style.opacity=0;wk.classList.add("carry");wk.style.left="28px";
+        later(()=>{trips++;wk.classList.remove("carry");pen.style.opacity=1;
+          $("#tr",el).textContent=trips+"/4";$("#m",el).textContent=trips*28+" m";$("#sec",el).textContent=trips*25+" s";
+          if(trips<4){go.disabled=false;go.textContent="Fetch it again";$("#nt",el).textContent="You used the pen for 3 seconds. Now it has to go back.";}
+          else{go.textContent="Four trips done";const n=$("#nt",el);n.classList.add("hot");n.textContent="Evidence logged: 112 m walked, 100 s spent, product unchanged.";unlock();}
+        },950);
+      },950);
+    };
+  }
+},
+{
+  culprit:"transport", title:"The Five Handoffs",
+  lead:"A finished part has to reach the customer. The route goes through five people before it gets there.",
+  evidence:"Pass the part along until it reaches the customer.",
+  live:"Have students pass one object through five people before it reaches the destination. Ask each person: did you change it?",
+  questions:[
+    ["Did the object become more valuable every time it moved?","No. It was worth $20 at the start and $20 at the end."],
+    ["What did each move add instead?","Handling cost, time, and another chance of it being dropped, damaged or lost."],
+    ["So what kind of waste is this?","Transportation: the product moved without gaining value. Shorter routes and fewer handoffs cut it."]
+  ],
+  build(el,unlock){
+    const names=["Store","Ana","Ben","Chen","Dev","Eli","Customer"];
+    el.innerHTML=`<div class="lane" id="ln"></div>
+      <div class="readouts">
+        <div><b id="h">0</b><span>Handoffs</span></div>
+        <div><b>$20</b><span>Value of the part</span></div>
+        <div><b id="c" class="warn">$0.00</b><span>Handling cost</span></div>
+        <div><b id="r" class="warn">0%</b><span>Chance of damage</span></div>
+      </div>
+      <div class="btnrow"><button class="btn" id="go">Pass it on</button></div>
+      <p class="note" id="nt"></p>`;
+    let pos=0;
+    const draw=()=>{$("#ln",el).innerHTML=names.map((n,i)=>`<div class="node${i===6?' end':''}"><div class="slot">${i===pos?'<div class="pkg pop"></div>':''}</div><div class="head" style="width:20px;height:20px;border-radius:50%;background:var(--muted)"></div><div>${n}</div></div>`).join("")};
+    draw();
+    $("#go",el).onclick=()=>{pos++;draw();
+      $("#h",el).textContent=pos;$("#c",el).textContent="$"+(pos*1.2).toFixed(2);$("#r",el).textContent=(pos*4)+"%";
+      if(pos===6){$("#go",el).disabled=true;$("#go",el).textContent="Delivered";const n=$("#nt",el);n.classList.add("hot");n.textContent="Evidence logged: six moves, same $20 part, $7.20 of handling.";unlock();}
+      else $("#nt",el).textContent=`${names[pos]} holds it. Did ${names[pos]} make it better?`;
+    };
+  }
+},
+{
+  culprit:"overproc", title:"Twenty Folds",
+  lead:"Your supervisor hands you a sheet of paper: \"Fold it 20 times before giving it to me.\" The customer only needs it to fit an envelope.",
+  evidence:"Fold the sheet 20 times.",
+  live:"Give students a sheet of paper and say \"Fold it 20 times before giving it to me.\" (They'll struggle after about 7.) Then ask what the customer actually needed.",
+  questions:[
+    ["What additional customer value did the extra folds create?","Usually none. One fold met the spec. Folds 2 to 20 were effort the customer never asked for and won't pay for."],
+    ["So what kind of waste is this?","Over-processing: doing more, or to a higher standard, than the customer requires."],
+    ["Where does it come from in a real factory?","Unclear specs, \"just to be safe\" steps, extra inspections, polishing hidden surfaces, reports nobody reads."]
+  ],
+  build(el,unlock){
+    el.innerHTML=`<div class="spec">Customer spec: folded once, to fit a C5 envelope.</div>
+      <div class="foldstage"><div class="sheet" id="sh" style="width:200px;height:150px"></div><div class="count" id="ct">0/20</div></div>
+      <div class="mbars">
+        <div><label><span>Customer value</span><span id="vl">0%</span></label><div class="bar ok"><i id="vb"></i></div></div>
+        <div><label><span>Effort spent</span><span id="el">0%</span></label><div class="bar"><i id="eb"></i></div></div>
+      </div>
+      <div class="btnrow"><button class="btn" id="go">Fold</button></div>
+      <p class="note" id="nt"></p>`;
+    let n=0;
+    $("#go",el).onclick=()=>{n++;
+      const sh=$("#sh",el);const w=200*Math.pow(.5,Math.ceil(n/2)),h=150*Math.pow(.5,Math.floor(n/2));
+      sh.style.width=Math.max(4,w)+"px";sh.style.height=Math.max(4,h)+"px";
+      $("#ct",el).textContent=n+"/20";
+      $("#vl",el).textContent="100%";$("#vb",el).style.width="100%";
+      $("#el",el).textContent=n*5+"%";$("#eb",el).style.width=n*5+"%";
+      const nt=$("#nt",el);
+      if(n===1) nt.textContent="Spec met. The customer is happy. Your supervisor says keep folding.";
+      else if(n===8) nt.textContent="It's barely foldable now. Customer value hasn't moved since fold 1.";
+      if(n===20){$("#go",el).disabled=true;$("#go",el).textContent="Twenty folds done";nt.classList.add("hot");nt.textContent="Evidence logged: 19 folds of effort, 0% extra value.";unlock();}
+    };
+  }
+},
+{
+  culprit:"defect", title:"The Wrong Order",
+  lead:"A shipment has just arrived at the customer. Compare it with what they ordered and flag every mistake.",
+  evidence:"Click every wrong field in the delivered shipment.",
+  live:"Hand a group a deliberately incorrect order (wrong quantity, colour, destination). They must find and correct the errors. Time how long it takes.",
+  questions:[
+    ["What did fixing it consume?","Time to inspect, re-pick, re-finish and re-ship, plus materials and the customer's patience."],
+    ["Why did this cost exist at all?","Because the process didn't get it right the first time. The fix adds nothing the customer didn't already pay for."],
+    ["So what kind of waste is this?","Defect: wrong output that has to be found, scrapped or fixed. Mistake-proofing (poka-yoke) stops it at the source."]
+  ],
+  build(el,unlock){
+    const rows=[["Part","Steel bracket","Steel bracket",0],["Quantity","12","21",1],["Finish","Matte black","Silver",1],["Hole size","8 mm","8 mm",0],["Deliver to","Line 3","Line 8",1]];
+    el.innerHTML=`<div class="tablewrap"><table class="orders"><thead><tr><th>Field</th><th>Customer ordered</th><th>Delivered · click to flag</th></tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td class="cell" data-i="${i}" tabindex="0">${r[2]}</td></tr>`).join("")}</tbody></table></div>
+      <div class="readouts"><div><b id="f">0/3</b><span>Mistakes found</span></div><div><b id="rw" class="warn">0 min</b><span>Rework time</span></div><div><b id="tk" class="warn">0</b><span>Extra tasks</span></div></div>
+      <p class="note" id="nt">Customer ordered on the left. Check the right-hand column.</p>`;
+    let found=0;const fixes=[null,"Recount and re-pick 12","Strip and re-finish in black",null,"Re-route to Line 3"];
+    el.querySelectorAll("td.cell").forEach(td=>{
+      const hit=()=>{const i=+td.dataset.i;if(td.classList.contains("flag")||td.classList.contains("okc"))return;
+        const nt=$("#nt",el);
+        if(rows[i][3]){td.classList.add("flag");found++;$("#f",el).textContent=found+"/3";$("#rw",el).textContent=found*15+" min";$("#tk",el).textContent=found*2;nt.textContent="Fix needed: "+fixes[i]+".";
+          if(found===3){nt.classList.add("hot");nt.textContent="Evidence logged: 3 mistakes, 6 extra tasks, 45 minutes. The customer gets nothing new.";unlock();}}
+        else{td.classList.add("okc");nt.textContent="That field matches the order.";}
+      };
+      td.onclick=hit;td.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();hit()}};
+    });
+  }
+},
+{
+  culprit:"inventory", title:"The Overflowing Table",
+  lead:"The warehouse bought 50 parts \"to be safe\". Customers need 8 a month. Run the next three months and watch the pile.",
+  evidence:"Advance three months.",
+  live:"Put 50 unnecessary objects on a table. Ask: does having more automatically mean better? Then point out the space they take and the money they represent.",
+  questions:[
+    ["Does having more automatically mean better?","No. Most of the pile is never used in time, and it costs money every month it sits there."],
+    ["What costs does excess stock create?","Financing (cash tied up in parts), storage (space, racking, handling) and defects (damage, obsolescence) across raw material, WIP and finished goods."],
+    ["What else does a big pile hide?","Problems. Late suppliers, machine breakdowns and quality issues stay invisible when there's always spare stock to cover them."]
+  ],
+  build(el,unlock){
+    el.innerHTML=`<div class="stock" id="sk">${'<i></i>'.repeat(50)}</div>
+      <div class="legend"><span style="--c:var(--folder)">On the table</span><span style="--c:var(--red)">Damaged</span><span style="--c:var(--muted)">Obsolete</span><span style="--c:var(--line)">Used by customers</span></div>
+      <div class="readouts">
+        <div><b id="mo">0/3</b><span>Months</span></div>
+        <div><b id="oh">50</b><span>Parts on hand</span></div>
+        <div><b id="cash" class="warn">$750</b><span>Cash tied up ($15 each)</span></div>
+        <div><b id="sto" class="warn">$0</b><span>Storage paid</span></div>
+        <div><b id="lost" class="warn">0</b><span>Damaged or obsolete</span></div>
+      </div>
+      <div class="btnrow"><button class="btn" id="go">Run one month</button></div>
+      <p class="note" id="nt"></p>`;
+    const cells=[...el.querySelectorAll(".stock i")];let m=0,used=0,lost=0,sto=0;
+    const dmg=[[44,31],[37,26,49],[19,40,12]], obs=[[],[22],[33,28]];
+    $("#go",el).onclick=()=>{m++;
+      for(let k=0;k<8;k++){const c=cells.find(x=>!x.className);if(c){c.className="used";used++}}
+      dmg[m-1].forEach(i=>{if(!cells[i].className){cells[i].className="dmg";lost++}});
+      obs[m-1].forEach(i=>{if(!cells[i].className){cells[i].className="obs";lost++}});
+      const on=50-used-lost;sto+=on*2;
+      $("#mo",el).textContent=m+"/3";$("#oh",el).textContent=on;$("#cash",el).textContent="$"+on*15;$("#sto",el).textContent="$"+sto;$("#lost",el).textContent=lost;
+      const nt=$("#nt",el);
+      if(m<3)nt.textContent=`Month ${m}: customers took 8. ${lost} parts already ruined while waiting.`;
+      else{$("#go",el).disabled=true;$("#go",el).textContent="Quarter complete";nt.classList.add("hot");nt.textContent=`Evidence logged: after 3 months, ${on} parts still unused, ${lost} written off, $${sto} spent just storing them.`;unlock();}
+    };
+  }
+},
+{
+  culprit:"overprod", title:"Twenty Boats, Five Customers",
+  lead:"Your team is told to make 20 paper boats. Five customers are waiting. Nobody has mentioned anyone else.",
+  evidence:"Make all 20 boats.",
+  live:"Ask a group to make 20 paper products (boats, hats, planes) when only 5 customers exist. Line the extra 15 up on a desk where everyone can see them.",
+  questions:[
+    ["Who asked you to make the other 15?","No one. Only 5 customers asked."],
+    ["What happens to the extra 15?","They need space, get counted and moved, may be damaged or go out of date, and used up paper and time that could have made something a customer wanted."],
+    ["So what kind of waste is this?","Overproduction: making more, or sooner, than demand. It's often called the worst waste because it creates inventory, transport, motion and waiting too."]
+  ],
+  build(el,unlock){
+    el.innerHTML=`<div class="customers">${[1,2,3,4,5].map(i=>`<div class="cust" id="c${i}"><div class="head"></div>Customer ${i}<div class="slot"></div></div>`).join("")}</div>
+      <div class="pile" id="pl"></div>
+      <div class="readouts"><div><b id="mk">0/20</b><span>Boats made</span></div><div><b id="sd">0</b><span>Sold</span></div><div><b id="us" class="warn">0</b><span>Nobody asked for</span></div></div>
+      <div class="btnrow"><button class="btn" id="go">Make a boat</button><button class="btn ghost" id="go5">Make 5 at once</button></div>
+      <p class="note" id="nt"></p>`;
+    let n=0;
+    const make=()=>{if(n>=20)return;n++;
+      if(n<=5){const c=$("#c"+n,el);c.classList.add("served");$(".slot",c).innerHTML='<span class="boat pop"></span>'}
+      else $("#pl",el).insertAdjacentHTML("beforeend",'<span class="boat pop"></span>');
+      $("#mk",el).textContent=n+"/20";$("#sd",el).textContent=Math.min(n,5);$("#us",el).textContent=Math.max(0,n-5);
+      const nt=$("#nt",el);
+      if(n===5)nt.textContent="Every customer has a boat. The order says keep going.";
+      if(n===20){$("#go",el).disabled=true;$("#go5",el).disabled=true;nt.classList.add("hot");nt.textContent="Evidence logged: 20 made, 5 wanted, 15 sitting on the desk.";unlock();}
+    };
+    $("#go",el).onclick=make;
+    $("#go5",el).onclick=()=>{for(let i=0;i<5;i++)later(make,i*90)};
+  }
+},
+{
+  culprit:"correction", title:"Make It Nice",
+  lead:"A customer leaves you a note with your task. That's all the instruction you get.",
+  evidence:"Complete the task, then do whatever the customer asks.",
+  live:"Give a student a task with deliberately vague instructions (\"Draw a house. Make it nice.\"). When they finish, reveal what you really wanted and have them redo it. Time both attempts.",
+  questions:[
+    ["How much of your time did the customer actually receive?","About half. The first attempt was thrown away; only the second reached the customer."],
+    ["What caused the redo?","Ambiguous instructions. The worker did the task well, but it was the wrong task."],
+    ["So what kind of waste is this?","Correction: doing work twice because it wasn't right the first time. Clear specs, examples and checking understanding up front prevent it."]
+  ],
+  build(el,unlock){
+    const svg={
+      a:'<svg viewBox="0 0 56 48"><path d="M8 24 L28 8 L48 24 V44 H8Z" fill="none" stroke="currentColor" stroke-width="3"/><rect x="23" y="30" width="10" height="14" fill="currentColor"/></svg>',
+      b:'<svg viewBox="0 0 56 48"><rect x="16" y="4" width="24" height="40" fill="none" stroke="currentColor" stroke-width="3"/><rect x="22" y="12" width="5" height="5" fill="currentColor"/><rect x="30" y="12" width="5" height="5" fill="currentColor"/><rect x="24" y="32" width="8" height="12" fill="currentColor"/></svg>',
+      c:'<svg viewBox="0 0 56 48"><rect x="4" y="16" width="48" height="28" fill="none" stroke="currentColor" stroke-width="3"/><rect x="10" y="22" width="16" height="10" fill="currentColor"/></svg>',
+      plan:'<svg viewBox="0 0 56 48"><rect x="4" y="4" width="48" height="40" fill="none" stroke="currentColor" stroke-width="3"/><path d="M28 4 V30 M4 30 H40 M28 18 H52" stroke="currentColor" stroke-width="2"/></svg>'
+    };
+    el.innerHTML=`<div class="instr">"Draw me a house. Make it nice." — the customer</div>
+      <div class="choices" id="ch">
+        <button class="choice" data-k="a">${svg.a}Cottage with a garden</button>
+        <button class="choice" data-k="b">${svg.b}Tall townhouse</button>
+        <button class="choice" data-k="c">${svg.c}Modern bungalow</button>
+      </div>
+      <div class="bar ok hidden" id="pb" style="margin-top:14px"><i></i></div>
+      <div id="out"></div>
+      <div class="timeline hidden" id="tl"><div id="t1" style="flex:1;background:var(--red)">Attempt 1 · 8 min · thrown away</div><div id="t2" style="flex:0;background:var(--ok)"></div></div>
+      <p class="note" id="nt">Pick how you'll draw it.</p>`;
+    const pb=$("#pb",el), bar=$("i",pb);
+    const build=(cb)=>{pb.classList.remove("hidden");let p=0;bar.style.width="0";const id=every(()=>{p+=4;bar.style.width=p+"%";if(p>=100){clearInterval(id);cb()}},80)};
+    el.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{
+      el.querySelectorAll(".choice").forEach(x=>x.disabled=true);
+      $("#nt",el).textContent="Drawing… (8 minutes)";
+      build(()=>{
+        $("#out",el).innerHTML=`<div class="say">"That's not what I meant. I needed a floor plan seen from above: two bedrooms, kitchen, one bathroom. I'm putting furniture in it."</div>
+          <div class="btnrow"><button class="btn red" id="redo">Redo it to the real spec</button></div>`;
+        $("#nt",el).textContent="Your drawing was good. It was just the wrong drawing.";
+        $("#tl",el).classList.remove("hidden");
+        $("#redo",el).onclick=()=>{$("#redo",el).disabled=true;$("#nt",el).textContent="Redrawing… (another 8 minutes)";
+          build(()=>{
+            $("#out",el).innerHTML=`<div class="say good" style="display:flex;gap:12px;align-items:center"><span style="width:56px;flex:none">${svg.plan}</span>"Perfect, that's exactly it."</div>`;
+            const t2=$("#t2",el);t2.style.flex="1";t2.textContent="Attempt 2 · 8 min · delivered";
+            const nt=$("#nt",el);nt.classList.add("hot");nt.textContent="Evidence logged: 16 minutes of work, 8 reached the customer (50%).";unlock();
+          });
+        };
+      });
+    });
+  }
+}
+];
+
+/* ---------- STATE ---------- */
+let S = {solved:{}, score:0, view:"board", idx:0, phase:"investigate", cleared:[], wrongs:0, alibi:"", revealed:{}};
+try{const saved=JSON.parse(localStorage.getItem("csi-waste")||"null");if(saved){S.solved=saved.solved||{};S.score=saved.score||0}}catch(e){}
+const persist=()=>{try{localStorage.setItem("csi-waste",JSON.stringify({solved:S.solved,score:S.score}))}catch(e){}};
+
+function updateHeader(){
+  const n=Object.keys(S.solved).length, p=70+n*3.75;
+  $("#prod").textContent=(Number.isInteger(p)?p:p.toFixed(1))+"%";
+  const f=$("#prodfill");f.style.width=p+"%";f.classList.toggle("full",n===8);
+  $("#solvedN").textContent=n+"/8";$("#scoreN").textContent=S.score;
+}
+
+function renderBoard(){
+  clearTimers();
+  const n=Object.keys(S.solved).length;
+  const app=$("#app");
+  app.innerHTML=`
+    ${n===8?`<section class="verdict"><h2>All eight convicted</h2>
+      <p style="margin:0">Productivity is back to 100%. Final detective score: <b>${S.score}</b> of 800. Here is the gang that was stealing 30% of the factory's output:</p>
+      <div class="convicts">${STATIONS.map(s=>`<div><b>${W[s.culprit].name}</b>${W[s.culprit].def}</div>`).join("")}</div>
+      <div class="btnrow"><button class="btn ghost" id="reset">Reopen all cases</button></div></section>`:""}
+    <section class="brief">
+      <div class="memo"><span class="stamp">URGENT</span>
+        <p>Detectives,</p>
+        <p>You are Lean detectives. A factory has lost 30% of its productivity. Your job is to find the criminals.</p>
+        <p>There are eight crime scenes. Each one hides a single waste. Investigate, name the culprit, and win back the factory's output.</p></div>
+      <ol class="how">
+        <li><b>Open a case folder.</b> Each one is a station from the factory floor.</li>
+        <li><b>Investigate the scene.</b> Work through what happens until the evidence is logged.</li>
+        <li><b>Accuse a suspect.</b> 100 points for a first-try conviction, 25 off for each wrong accusation.</li>
+        <li><b>Debrief.</b> Discuss the questions as a class before revealing the answers.</li>
+      </ol>
+    </section>
+    <section class="board">
+      ${STATIONS.map((s,i)=>`<button class="folder" data-i="${i}">
+        <span class="no">Station ${i+1}</span>
+        <span class="t">${s.title}</span>
+        <span class="s">${S.solved[i]!=null?"Culprit: "+W[s.culprit].name+" · +"+S.solved[i]:"Open case"}</span>
+        ${S.solved[i]!=null?'<span class="solvedstamp">SOLVED</span>':""}
+      </button>`).join("")}
+    </section>`;
+  app.querySelectorAll(".folder").forEach(b=>b.onclick=()=>openCase(+b.dataset.i));
+  const r=$("#reset");
+  if(r)r.onclick=()=>{if(r.dataset.arm){S.solved={};S.score=0;persist();updateHeader();renderBoard()}else{r.dataset.arm=1;r.textContent="Click again to wipe all progress"}};
+  updateHeader();
+}
+
+function openCase(i){
+  S.view="case";S.idx=i;S.cleared=[];S.wrongs=0;S.alibi="";S.revealed={};
+  S.phase=S.solved[i]!=null?"debrief":"investigate";
+  renderCase(true);window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function renderCase(rebuildSim){
+  const s=STATIONS[S.idx], i=S.idx, app=$("#app");
+  if(rebuildSim){
+    clearTimers();
+    app.innerHTML=`<button class="back" id="back">← Back to the evidence board</button>
+      <section class="case">
+        <div class="panel scene"><div class="eyebrow">Station ${i+1} · Crime scene</div><h2>${s.title}</h2><p class="lead">${s.lead}</p><div id="sim"></div></div>
+        <aside class="file" id="file"></aside>
+      </section>`;
+    $("#back").onclick=()=>{S.view="board";renderBoard()};
+    s.build($("#sim"),()=>{if(S.phase==="investigate"){S.phase="ready";renderFile()}});
+  }
+  renderFile();
+}
+
+function renderFile(){
+  const s=STATIONS[S.idx], f=$("#file"), ph=S.phase;
+  const step=(k,label)=>{const order=["investigate","accuse","debrief"];const cur=ph==="ready"?0:order.indexOf(ph);const me=order.indexOf(k);
+    return `<span class="${me===cur?'on':me<cur?'done':''}">${label}</span>`};
+  let body="";
+  if(ph==="investigate"||ph==="ready"){
+    body=`<h3>Case file</h3>
+      <div class="evid">${ph==="ready"?"✔ Evidence logged. You're ready to name the culprit.":"Evidence needed: "+s.evidence}</div>
+      <p>Watch carefully. What is being used up here, and what does the customer get for it?</p>
+      <button class="btn red" id="acc" ${ph==="ready"?"":"disabled"}>Accuse a suspect</button>
+      <details class="live"><summary>Run it live in the classroom</summary><p>${s.live}</p></details>`;
+  } else if(ph==="accuse"){
+    body=`<h3>The lineup</h3><p>Which waste committed this crime?</p>
+      <div class="lineup">${WASTES.map(w=>`<button class="suspect${S.cleared.includes(w.key)?' cleared':''}" data-k="${w.key}"><b>${w.name}</b><i>${w.alias}</i></button>`).join("")}</div>
+      ${S.alibi?`<div class="alibi" role="status">${S.alibi}</div>`:""}`;
+  } else {
+    const w=W[s.culprit];
+    body=`<div class="caught"><div class="lbl">Culprit identified</div><b>${w.name}</b><div style="margin-top:6px">${w.def}</div></div>
+      <h3>Debrief</h3><p>Discuss each question first, then reveal.</p>
+      ${s.questions.map((q,j)=>`<div class="qa"><div class="q">${q[0]}</div>${S.revealed[j]?`<div class="a">${q[1]}</div>`:`<button class="reveal" data-j="${j}">Reveal answer</button>`}</div>`).join("")}
+      <div class="btnrow">${S.idx<7?`<button class="btn" id="next">Next station →</button>`:""}<button class="btn ghost" id="toboard">Evidence board</button></div>`;
+  }
+  f.innerHTML=`<div class="steps">${step("investigate","1 Investigate")}${step("accuse","2 Accuse")}${step("debrief","3 Debrief")}</div>${body}`;
+
+  const acc=$("#acc",f); if(acc)acc.onclick=()=>{S.phase="accuse";renderFile()};
+  f.querySelectorAll(".suspect").forEach(b=>b.onclick=()=>accuse(b.dataset.k,b));
+  f.querySelectorAll(".reveal").forEach(b=>b.onclick=()=>{S.revealed[b.dataset.j]=1;renderFile()});
+  const nx=$("#next",f); if(nx)nx.onclick=()=>openCase(S.idx+1);
+  const tb=$("#toboard",f); if(tb)tb.onclick=()=>{S.view="board";renderBoard()};
+}
+
+function accuse(k,btn){
+  const s=STATIONS[S.idx];
+  if(k===s.culprit){
+    const pts=Math.max(25,100-25*S.wrongs);
+    if(S.solved[S.idx]==null){S.solved[S.idx]=pts;S.score+=pts;persist();}
+    S.phase="debrief";updateHeader();renderFile();
+  } else {
+    S.wrongs++;S.cleared.push(k);
+    S.alibi=`<b>${W[k].name}</b> has an alibi. ${W[k].name} means: ${W[k].def} Is that what you saw here?`;
+    renderFile();
+    const again=$(`.suspect[data-k="${k}"]`); if(again){again.classList.add("shake")}
+  }
+}
+
+const start=(d)=>{if(d&&d.solved){S.solved=d.solved;S.score=d.score||0}renderBoard()};
+start({});
+</script>
+</body>
+</html>
